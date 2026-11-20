@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Review the audience evidence behind Taylor Swift’s Wildest Dreams in the Krescendo public trial.">
-  <title>Wildest Dreams – Krescendo</title>
+  <meta name="description" content="Three music release case studies and a browser workspace for reviewing audience feedback.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Krescendo</title>
   <link rel="icon" type="image/png" href="krescendo-mark.png">
   <link rel="stylesheet" href="styles.css">
   <script src="sample.js" defer></script>
@@ -13,148 +14,18 @@
 <body>
   <a class="skip-link" href="#workspace">Skip to workspace</a>
   <header class="site-header wrap">
-    <a class="brand" href="#overview">
+    <a class="brand" href="#library">
       <img src="krescendo-mark.png" width="36" height="36" alt="">
       Krescendo
     </a>
-    <span>Public trial</span>
+    <a href="#progress">Project progress</a>
   </header>
-
   <main id="workspace" class="wrap" tabindex="-1">
-    <header class="release">
-      <h1>Wildest Dreams</h1>
-      <p>Taylor Swift <span aria-hidden="true">·</span> Original recording from <em>1989</em></p>
-    </header>
-    <nav class="nav" aria-label="Release workspace">
-      <a href="#overview" aria-current="page">Overview</a>
-      <a href="#sources">Sources</a>
-      <a href="#feedback">Audience Feedback</a>
-      <a href="#reviews">Review Text</a>
-      <a href="#next">What to Try Next</a>
-      <a href="#brief">Feedback Brief</a>
-    </nav>
-
-    <section id="overview" class="view layout" aria-labelledby="overview-heading">
-      <div class="panel">
-        <h2 id="overview-heading" tabindex="-1">Overview</h2>
-        <p class="lede">What listeners noticed about the original recording and its music video.</p>
-        <div id="highlights"></div>
-        <a class="action section-action" href="#feedback">Explore audience feedback</a>
-      </div>
-      <aside class="panel sidebar" aria-labelledby="scope-heading">
-        <h3 id="scope-heading">Sample at a glance</h3>
-        <p class="lede">Four distinct reviewers wrote about the song in their <em>1989</em> reviews on CritiqueBrainz, from December 2015 to January 2016.</p>
-        <div id="overview-coverage" class="count-list"></div>
-        <h3 class="section-label">Sentiment on this song</h3>
-        <div id="sentiments" class="count-list"></div>
-        <a class="section-link" href="#sources">Check coverage and sources</a>
-      </aside>
-    </section>
-
-    <section id="sources" class="view layout" aria-labelledby="sources-heading" hidden>
-      <div class="panel">
-        <h2 id="sources-heading" tabindex="-1">Sources</h2>
-        <p class="lede">See where the feedback came from and which material the sample covers.</p>
-        <section class="finding">
-          <h3>CritiqueBrainz</h3>
-          <p>Six licensed album reviews were screened. Four discussed this song or its video. Each row is one author’s original review, with only the relevant excerpts shown.</p>
-          <p>Reviews were published between December 2015 and January 2016. Individual source links and CC BY-SA 3.0 attribution appear in Review Text.</p>
-          <div class="source-actions">
-            <a class="action" href="#reviews?source=critiquebrainz">Browse source reviews</a>
-            <a href="https://critiquebrainz.org/release-group/4d9ec1c2-58ec-48a4-aa0a-916718adead0">Open album review collection</a>
-          </div>
-        </section>
-        <section class="finding">
-          <h3>Listen and watch</h3>
-          <p>Track and video references. Feedback totals come from the reviewed CritiqueBrainz sample.</p>
-          <ul class="evidence-links">
-            <li><a href="https://music.apple.com/us/song/1440936036">Original recording on Apple Music</a></li>
-            <li><a href="https://www.youtube.com/watch?v=IdneKLhsWOQ">Official music video on YouTube</a></li>
-          </ul>
-        </section>
-      </div>
-      <aside class="panel sidebar" aria-labelledby="source-stats-heading">
-        <h3 id="source-stats-heading">CritiqueBrainz coverage</h3>
-        <div id="source-coverage" class="count-list"></div>
-        <h3 class="section-label">Sentiment on this song</h3>
-        <div id="source-sentiments" class="count-list"></div>
-      </aside>
-    </section>
-
-    <section id="feedback" class="view layout" aria-labelledby="feedback-heading" hidden>
-      <div class="panel">
-        <h2 id="feedback-heading" tabindex="-1">Audience Feedback</h2>
-        <p class="lede">Select a topic to see the reviews behind its count. Select it again to close the list.</p>
-        <div class="topics" id="feedback-topics"></div>
-        <p class="fine">Each included review counts once per topic. All reviews come from CritiqueBrainz.</p>
-        <div class="topic-results" id="topic-results" aria-live="polite" hidden></div>
-      </div>
-      <aside class="panel sidebar" aria-labelledby="individual-heading">
-        <h3 id="individual-heading">Individual observations</h3>
-        <p class="lede">Two details worth keeping in view. Each comes from one reviewer.</p>
-        <div id="individual-findings"></div>
-        <a class="action section-action" href="#next">Explore possible next steps</a>
-      </aside>
-    </section>
-
-    <section id="reviews" class="view layout" aria-labelledby="reviews-heading" hidden>
-      <div class="panel">
-        <h2 id="reviews-heading" tabindex="-1">Review Text</h2>
-        <p class="lede">Read the excerpts beside their labels. Open any original review for more context.</p>
-        <div class="review-filters" id="review-filters">
-          <label>Search reviews <input id="review-search" type="search" placeholder="Author or review text"></label>
-          <label>Topic <select id="review-topic"><option value="">All topics</option></select></label>
-          <label>Status <select id="review-status">
-            <option value="">All reviews</option><option value="included">Included</option><option value="excluded">Excluded</option>
-          </select></label>
-        </div>
-        <div class="filter-summary" id="filter-summary">
-          <p id="review-results" role="status"></p>
-          <a href="#reviews" id="clear-filters" hidden>Clear filters</a>
-        </div>
-        <p class="empty" id="no-reviews" hidden>No reviews match these filters.</p>
-        <div id="review-list"></div>
-      </div>
-      <aside class="panel sidebar live" aria-labelledby="live-heading">
-        <h3 id="live-heading">All included reviews by topic</h3>
-        <div id="live-topics" class="count-list"></div>
-        <p class="fine">Saved changes stay in this browser. <a href="#feedback">See Audience Feedback</a>.</p>
-      </aside>
-    </section>
-
-    <section id="next" class="view layout" aria-labelledby="next-heading" hidden>
-      <div class="panel">
-        <h2 id="next-heading" tabindex="-1">What to Try Next</h2>
-        <p class="lede">Two ways the team could follow up on the sample. Open the evidence before choosing a test.</p>
-        <div id="options"></div>
-        <a class="action section-action" href="#brief">Open the feedback brief</a>
-      </div>
-      <aside class="panel sidebar">
-        <h3>How much can we infer?</h3>
-        <p class="lede">The sample covers four reviews on one platform. Treat the options as hypotheses and leave the decision open until the team has enough evidence.</p>
-        <a class="section-link" href="#sources">See what the sample covers</a>
-      </aside>
-    </section>
-
-    <section id="brief" class="view layout" aria-labelledby="brief-heading" hidden>
-      <div class="panel">
-        <h2 id="brief-heading" tabindex="-1">Feedback Brief</h2>
-        <p class="lede">A one-page readout for the original recording of Wildest Dreams.</p>
-        <p class="scope-note" id="brief-scope"></p>
-        <div id="findings"></div>
-        <div class="brief-action" id="follow-up"></div>
-      </div>
-      <aside class="panel sidebar" aria-labelledby="brief-topics-heading">
-        <h3 id="brief-topics-heading">Current topic counts</h3>
-        <div id="brief-topics" class="count-list"></div>
-        <p class="fine">Removing a supporting label or excluding a source review flags the affected finding.</p>
-      </aside>
-    </section>
-    <noscript><p>Enable JavaScript to view the reviews and save your labels.</p></noscript>
+    <div id="workspace-content"></div>
+    <noscript><p>Enable JavaScript to open the cases and use the local review workspace.</p></noscript>
   </main>
-
   <footer class="site-footer wrap">
-    <p>Review excerpts from <a href="https://critiquebrainz.org/release-group/4d9ec1c2-58ec-48a4-aa0a-916718adead0">CritiqueBrainz</a> under <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>. Original wording is preserved. Topic labels and analysis are by Krescendo.</p>
+    <p>Krescendo is an independent music-feedback portfolio project. <a href="#progress">Project status and data scope</a></p>
   </footer>
 </body>
 </html>

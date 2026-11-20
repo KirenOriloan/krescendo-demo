@@ -1,417 +1,351 @@
 'use strict';
 
-const storagePrefix = 'krescendo.public-trial.wildest-dreams.v1.';
-const reviewBase = 'https://critiquebrainz.org/review/';
-const licenseUrl = 'https://creativecommons.org/licenses/by-sa/3.0/';
-const reviewsById = new Map(trialReviews.map(review => [review.id, review]));
-const findingsById = new Map(trialFindings.map(finding => [finding.id, finding]));
-const topicEntries = Object.entries(trialTopics);
-const sentimentEntries = Object.entries(trialSentiments);
-const dateFormat = new Intl.DateTimeFormat('en-US', {
-  year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
-});
-const nav = [...document.querySelectorAll('.nav a')];
-const pages = new Map(nav.map(link => [link.hash.slice(1), { label: link.textContent, link }]));
-const feedbackTopics = document.querySelector('#feedback-topics');
-const topicResults = document.querySelector('#topic-results');
-const reviewList = document.querySelector('#review-list');
-const reviewSearch = document.querySelector('#review-search');
-const reviewTopic = document.querySelector('#review-topic');
-const reviewStatus = document.querySelector('#review-status');
-
-function readEdit(id) {
-  try {
-    const edit = JSON.parse(localStorage.getItem(storagePrefix + id));
-    if (Array.isArray(edit?.topics)
-      && edit.topics.every(topic => Object.hasOwn(trialTopics, topic))
-      && Object.hasOwn(trialSentiments, edit.sentiment)
-      && ['included', 'excluded'].includes(edit.status)) {
-      return { ...edit, topics: [...new Set(edit.topics)] };
-    }
-  } catch {
-    // Unavailable storage or an unreadable edit can use the baseline labels.
-  }
-  return null;
-}
-
-const edits = new Map(trialReviews.flatMap(review => {
-  const edit = readEdit(review.id);
-  return edit ? [[review.id, edit]] : [];
-}));
-
-function currentLabels(review) {
-  return edits.get(review.id) ?? { ...review, status: 'included' };
-}
+const views = {
+  overview: 'Overview',
+  sources: 'Sources',
+  feedback: 'Audience Feedback',
+  reviews: 'Review Text',
+  next: 'What to Try Next',
+  brief: 'Feedback Brief',
+};
+const platformNames = { youtube: 'YouTube', instagram: 'Instagram', tiktok: 'TikTok', reddit: 'Reddit', x: 'X' };
+const stage = document.getElementById('workspace-content');
+const caseById = new Map(portfolioCases.map(item => [item.id, item]));
+const localCases = new Map();
+const format = new Intl.NumberFormat('en-US');
+const pageSize = 15;
 
 function escapeHtml(value) {
-  const escaped = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-  return value.replace(/[&<>"']/g, char => escaped[char]);
+  const encoded = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(value ?? '').replace(/[&<>"']/g, character => encoded[character]);
 }
 
-function reviewCount(count) {
-  return `${count} ${count === 1 ? 'review' : 'reviews'}`;
-}
-
-function pageUrl(view, params = {}) {
+function href(item, view = 'overview', params = {}) {
   const query = new URLSearchParams(params).toString();
-  return `#${view}${query && '?' + query}`;
+  return `#${item.id}/${view}${query && '?' + query}`;
 }
 
-function readRoute(hash = location.hash) {
-  const [view, query] = hash.slice(1).split('?');
-  const record = view.startsWith('review-') ? reviewsById.get(view.slice('review-'.length)) : null;
-  const page = record ? 'reviews' : pages.has(view) ? view : 'overview';
-  return { page, record, params: new URLSearchParams(query) };
+function route() {
+  const [path, query] = location.hash.slice(1).split('?');
+  const [id, destination] = path.split('/');
+  return { item: caseById.get(id), view: Object.hasOwn(views, destination) ? destination : 'overview',
+    params: new URLSearchParams(query), progress: id === 'progress' };
 }
 
-function reviewLinks(items, page, group, params = {}) {
-  return `<ul class="evidence-links">${items.map(({ id }) => {
-    const anchor = `evidence-${page}-${group}-${id}`;
-    const back = pageUrl(page, { ...params, at: anchor });
-    const href = pageUrl('review-' + id, { back });
-    const author = escapeHtml(reviewsById.get(id).author);
-    return `<li><a id="${anchor}" href="${escapeHtml(href)}" aria-label="Review excerpt by ${author}">${author}</a></li>`;
-  }).join('')}</ul>`;
+function openLink(url, label) {
+  return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
 }
 
-function countList(entries, counts) {
-  return `<dl>${entries.map(([key, label]) => `
-    <div><dt>${escapeHtml(label)}</dt><dd data-count="${key}">${counts[key]}</dd></div>`).join('')}</dl>`;
+function listStats(entries) {
+  return `<dl>${entries.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>`;
 }
 
-function setCounts(id, entries, counts) {
-  document.getElementById(id).innerHTML = countList(entries, counts);
+function scope(item) {
+  return listStats([
+    ['Verified feedback records', format.format(item.reviewed)],
+    ['Saved records', format.format(item.archived)],
+    ['Source posts in archive', format.format(item.posts)],
+  ]);
 }
 
-function supportingCount(finding) {
-  return finding.evidence.filter(({ id, topic }) => {
-    const labels = currentLabels(reviewsById.get(id));
-    return labels.status === 'included' && labels.topics.includes(topic);
-  }).length;
+function renderLibrary() {
+  stage.innerHTML = `
+    <header class="release"><h1>Release feedback</h1><p>Three cases from source collection to a reviewable next step.</p></header>
+    <section class="panel library">
+      <div class="library-title"><h2>Case library</h2><p class="lede">Sample sizes are from the reviewed local archives.</p></div>
+      <ul class="case-list">${portfolioCases.map(item => `<li><div>
+          <h3><a href="${href(item)}">${escapeHtml(item.title)}</a></h3>
+          <p>${escapeHtml(item.artist)} · ${item.year} single</p>
+          <p class="case-question">${escapeHtml(item.question)}</p>
+        </div><div class="case-size">
+          <strong>${format.format(item.reviewed)}</strong>
+          <span>verified feedback records</span>
+          <span>${item.platforms.length} platforms in archive</span>
+        </div></li>`).join('')}</ul>
+    </section>`;
 }
 
-function needsReview(finding) {
-  return supportingCount(finding) < finding.evidence.length;
+function renderProgress() {
+  stage.innerHTML = `
+    <header class="release"><h1>Project progress</h1><p>Case review, the public site and data permissions.</p></header>
+    <section class="panel library">
+      <a href="#library">Back to case library</a>
+      <section class="finding"><h2>Completed locally</h2>
+        <p>Three release cases have been collected, deduplicated and reviewed. Housewife has 1,074 verified feedback records. The full workspace supports review, source context and corrected label counts.</p></section>
+      <section class="finding"><h2>Available on GitHub</h2>
+        <p>Case summaries, links to official release material and the review interface. You can open a Krescendo review snapshot from your device to work with its contents in your browser.</p></section>
+      <section class="finding"><h2>Public data permissions</h2>
+        <p>Permission to redistribute the original comment archives is still under review. The public site shows the size of each local case and the questions it explored. Records and original comment links load from the snapshot you select.</p></section>
+    </section>`;
 }
 
-function evidenceStatus(finding) {
-  const count = supportingCount(finding);
-  const changed = count < finding.evidence.length;
-  return `<p class="evidence-status ${changed ? 'needs-review' : ''}">${changed
-    ? `Review this finding. ${count} of ${finding.evidence.length} cited reviews still carry the supporting labels and are included.`
-    : `Based on ${reviewCount(count)}`}</p>`;
+function findingsHtml(item) {
+  return item.findings.map(finding => `<section class="finding">
+    <h3>${escapeHtml(finding.title)}</h3><p>${escapeHtml(finding.text)}</p>
+    <a class="section-link" href="${escapeHtml(href(item, 'reviews', { topic: finding.topic, from: 'feedback' }))}">Review this topic</a>
+  </section>`).join('');
 }
 
-function findingHtml(finding, page) {
-  return `<section class="finding" id="${page}-${finding.id}">
-    <h3>${escapeHtml(finding.title)}</h3>
-    <p>${escapeHtml(finding.text)}</p>
-    ${evidenceStatus(finding)}
-    ${reviewLinks(finding.evidence, page, finding.id)}
+function optionHtml(item, option, primary) {
+  return `<section class="finding">
+    <h3>${escapeHtml(option.title)}</h3>
+    <p>${escapeHtml(option.text)}</p>
+    ${primary ? `<p class="fine"><strong>What to check</strong> ${escapeHtml(option.check)}</p>` : ''}
+    <a class="section-link" href="${escapeHtml(href(item, 'reviews', { topic: option.topic, from: 'next' }))}">Review supporting feedback</a>
   </section>`;
 }
 
-function optionNeedsReview(option) {
-  return option.findings.some(id => needsReview(findingsById.get(id)));
-}
-
-function renderOptions() {
-  document.querySelector('#options').innerHTML = trialOptions.map(option => {
-    const findings = option.findings.map(id => findingsById.get(id));
-    const changed = optionNeedsReview(option);
-    return `<section class="finding option" aria-labelledby="option-${option.id}">
-      <h3 id="option-${option.id}">${escapeHtml(option.title)}</h3>
-      <p>${escapeHtml(option.rationale)}</p>
-      <p><strong>How to check</strong> ${escapeHtml(option.test)}</p>
-      <p><strong>What would change the next step</strong> ${escapeHtml(option.gap)}</p>
-      ${changed ? '<p class="evidence-status needs-review">Review this option before using it. A supporting finding changed.</p>' : ''}
-      <div class="option-evidence">${findings.map(finding => `<div>
-        <p class="option-finding">${escapeHtml(finding.title)}</p>
-        ${evidenceStatus(finding)}
-        ${reviewLinks(finding.evidence, 'next', option.id + '-' + finding.id)}
-      </div>`).join('')}</div>
-    </section>`;
-  }).join('');
-}
-
-function showTopicEvidence() {
-  const { page, params } = readRoute();
-  const requested = params.get('topic');
-  const selected = page === 'feedback' && Object.hasOwn(trialTopics, requested) ? requested : '';
-  for (const button of feedbackTopics.querySelectorAll('button')) {
-    button.setAttribute('aria-pressed', String(button.dataset.topic === selected));
-  }
-  topicResults.hidden = !selected;
-  if (!selected) return;
-
-  const matching = trialReviews.filter(review => {
-    const labels = currentLabels(review);
-    return labels.status === 'included' && labels.topics.includes(selected);
+function localTopicSummary(item, records) {
+  if (!records) return '';
+  const groups = Object.keys(topics).map(topic => {
+    const entries = records.rows.filter(row => row.included && row.tags.includes(topic));
+    const posts = new Map();
+    for (const row of entries) posts.set(row.postId, (posts.get(row.postId) ?? 0) + 1);
+    return { topic, entries: entries.length, posts: posts.size,
+      largest: entries.length ? Math.round(100 * Math.max(...posts.values()) / entries.length) : 0 };
   });
-  const filter = pageUrl('reviews', { topic: selected, status: 'included' });
-  topicResults.innerHTML = `
-    <h3>${escapeHtml(trialTopics[selected])} · ${reviewCount(matching.length)}</h3>
-    ${matching.length
-      ? `${reviewLinks(matching, 'feedback', 'topic-' + selected, { topic: selected })}
-        <a class="section-link" href="${escapeHtml(filter)}">View matching reviews in Review Text</a>`
-      : '<p class="fine">No included reviews currently use this label.</p>'}`;
+  return `<section class="finding"><h3>Topics in the local snapshot</h3>
+    <p class="fine">Each review counts once in a topic. A review can appear in multiple topics.</p>
+    <ul class="case-topics">${groups.map(({ topic, entries, posts, largest }) => `<li>
+      <a href="${escapeHtml(href(item, 'reviews', { topic, from: 'feedback' }))}">${escapeHtml(topics[topic])}</a>
+      <span>${format.format(entries)} records · ${posts} posts${entries ? ` · largest post ${largest}%` : ''}</span>
+    </li>`).join('')}</ul></section>`;
 }
 
-function updateSummaries() {
-  const topicCounts = Object.fromEntries(topicEntries.map(([topic]) => [topic, 0]));
-  const sentimentCounts = Object.fromEntries(sentimentEntries.map(([sentiment]) => [sentiment, 0]));
-  const included = trialReviews.filter(review => currentLabels(review).status === 'included');
+function renderPanel(item, view, params, records) {
+  if (view === 'overview') return `<p class="lede">${escapeHtml(item.question)}</p>
+    ${findingsHtml(item)}
+    <a class="action section-action" href="${href(item, 'feedback')}">Explore audience feedback</a>`;
+  if (view === 'sources') return `<p class="lede">The local archive includes ${escapeHtml(item.platforms.join(', '))}.</p>
+    <section class="finding"><h3>Official release material</h3>
+      <ul class="evidence-links">${item.links.map(link => `<li>${openLink(link.url, link.title)}</li>`).join('')}</ul></section>
+    <section class="finding"><h3>Feedback archive</h3>
+      <p>The public case shows archival coverage. Open the local snapshot to filter the individual records and return to their original sources.</p>
+      ${records ? `<ul class="case-topics">${item.platforms.map(platform => {
+        const key = Object.keys(platformNames).find(id => platformNames[id] === platform);
+        const count = records.rows.filter(row => row.platform === key && row.included).length;
+        return `<li><a href="${escapeHtml(href(item, 'reviews', { platform: key, from: 'sources' }))}">${platform}</a><span>${format.format(count)} included</span></li>`;
+      }).join('')}</ul>` : ''}
+      <a class="section-link" href="${href(item, 'reviews')}">Open Review Text</a>
+    </section>`;
+  if (view === 'feedback') return `<p class="lede">The case groups feedback by what it refers to and what the reviewer expresses.</p>
+    ${findingsHtml(item)}${localTopicSummary(item, records)}
+    <a class="action section-action" href="${href(item, 'next')}">Explore possible next steps</a>`;
+  if (view === 'next') return `<p class="lede">Possible follow-ups for the team to check.</p>
+    ${optionHtml(item, item.primary, true)}${optionHtml(item, item.secondary, false)}
+    <a class="action section-action" href="${href(item, 'brief')}">Open the feedback brief</a>`;
+  if (view === 'brief') return `<p class="lede">${escapeHtml(item.question)}</p>
+    ${findingsHtml(item)}
+    <div class="brief-action"><h3>${escapeHtml(item.primary.title)}</h3>
+      <p>${escapeHtml(item.primary.check)}</p>
+      <a class="section-link" href="${href(item, 'next')}">See the follow-up and alternatives</a></div>`;
+  const from = params.get('from');
+  const back = ['overview', 'sources', 'feedback', 'next', 'brief'].includes(from)
+    ? `<a class="section-link" href="${href(item, from)}">Back to ${views[from]}</a>` : '';
+  return `${back}<p class="lede">Open a reviewed Krescendo snapshot from your device to inspect evidence, edit labels and see counts update.</p>
+    <label class="file-input">Open local review snapshot
+      <input id="review-file" type="file" accept=".json,.js,application/json">
+    </label>
+    <p class="fine">The file is read in your browser. Only label edits are retained in browser storage. Reopen the file after refreshing.</p>
+    <p id="load-message" class="fine" role="status">${records ? 'Snapshot loaded.' : ''}</p>
+    ${records ? renderArchiveControls(params) : ''}`;
+}
 
-  for (const review of included) {
-    const { topics, sentiment } = currentLabels(review);
-    for (const topic of topics) topicCounts[topic] += 1;
-    sentimentCounts[sentiment] += 1;
+function renderArchiveControls(params) {
+  const options = (choices, value, label) => `<option value="">${label}</option>${Object.entries(choices).map(([key, name]) =>
+    `<option value="${key}"${value === key ? ' selected' : ''}>${escapeHtml(name)}</option>`).join('')}`;
+  return `<div class="review-filters">
+    <label>Search <input id="record-search" type="search" placeholder="Search review text"></label>
+    <label><span id="record-topic-label">Topic</span><select id="record-topic" aria-labelledby="record-topic-label">${options(topics, params.get('topic'), 'All topics')}</select></label>
+    <label><span id="record-platform-label">Platform</span><select id="record-platform" aria-labelledby="record-platform-label">${options(platformNames, params.get('platform'), 'All platforms')}</select></label>
+  </div><div id="record-results"></div>`;
+}
+
+function render({ moveFocus = false } = {}) {
+  const { item, view, params, progress } = route();
+  if (!item) {
+    if (progress) renderProgress();
+    else renderLibrary();
+  } else {
+    const records = localCases.get(item.id);
+    stage.innerHTML = `
+      <div class="case-breadcrumb"><a href="#library">Case library</a></div>
+      <header class="release"><h1>${escapeHtml(item.title)}</h1><p>${escapeHtml(item.artist)} · ${item.year} single</p></header>
+      <nav class="nav" aria-label="Release workspace">${Object.entries(views).map(([key, title]) =>
+        `<a href="${href(item, key)}"${view === key ? ' aria-current="page"' : ''}>${title}</a>`).join('')}</nav>
+      <section class="view layout">
+        <div class="panel"><h2 tabindex="-1">${views[view]}</h2>${renderPanel(item, view, params, records)}</div>
+        <aside class="panel sidebar live"><h3>Reviewed local case</h3>
+          <p class="lede">Snapshot audited November 17, 2026.</p>
+          <div class="count-list">${scope(item)}</div>
+          ${records ? '<div id="live-counts" class="count-list"></div>' : '<p class="fine">Original comment archives are kept outside the public site.</p>'}
+          <a class="section-link" href="#progress">View data usage status</a>
+        </aside>
+      </section>`;
+    if (records) {
+      updateLiveCounts(records);
+      if (view === 'reviews') bindArchive(records);
+    }
   }
-
-  const counts = {
-    screened: trialSource.screened,
-    matched: trialReviews.length,
-    included: included.length,
-    excluded: trialReviews.length - included.length,
-  };
-  const coverage = [['included', 'Included in analysis'], ['excluded', 'Excluded by review']];
-  setCounts('overview-coverage', coverage, counts);
-  setCounts('source-coverage', [['screened', 'Album reviews screened'], ['matched', 'Discussed this song'], ...coverage], counts);
-  setCounts('sentiments', sentimentEntries, sentimentCounts);
-  setCounts('source-sentiments', sentimentEntries, sentimentCounts);
-  setCounts('live-topics', topicEntries, topicCounts);
-  setCounts('brief-topics', topicEntries, topicCounts);
-
-  for (const button of feedbackTopics.querySelectorAll('button')) {
-    const topic = button.dataset.topic;
-    const count = topicCounts[topic];
-    button.querySelector('strong').textContent = count;
-    button.setAttribute('aria-label', `${trialTopics[topic]}, ${reviewCount(count)}`);
+  if (moveFocus) {
+    stage.querySelector('h1')?.setAttribute('tabindex', '-1');
+    (stage.querySelector('.view h2') ?? stage.querySelector('h1'))?.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
   }
-
-  const shared = trialFindings.filter(finding => finding.evidence.length > 1);
-  const individual = trialFindings.filter(finding => finding.evidence.length === 1);
-  document.querySelector('#highlights').innerHTML = shared.map(finding => findingHtml(finding, 'overview')).join('');
-  document.querySelector('#individual-findings').innerHTML = individual.map(finding => findingHtml(finding, 'feedback')).join('');
-  document.querySelector('#findings').innerHTML = trialFindings.map(finding => findingHtml(finding, 'brief')).join('');
-  document.querySelector('#brief-scope').textContent = `${reviewCount(included.length)} included from ${trialReviews.length} track-relevant CritiqueBrainz reviews of 1989. Findings reflect this historical sample.`;
-  const lead = trialOptions[0];
-  document.querySelector('#follow-up').innerHTML = `
-    <h3>Possible follow-up</h3>
-    <p>${optionNeedsReview(lead)
-      ? 'Recheck the evidence for the music-first and story-first comparison before choosing what to test.'
-      : 'If the team needs an introduction for new listeners, compare music-first and story-first framing. The sample gives enough to define a test. Listener response would guide the choice.'}</p>
-    <a class="section-link" href="#next">See options and supporting reviews</a>`;
-  renderOptions();
-  showTopicEvidence();
-  return { topicCounts, sentimentCounts };
 }
 
-function labelsHtml(review) {
-  const { topics, sentiment, status } = currentLabels(review);
-  const chips = topics.map(topic => `<li class="chip">${escapeHtml(trialTopics[topic])}</li>`);
-  const excluded = status === 'excluded' ? '<li class="chip">Excluded from analysis</li>' : '';
-  return `${excluded}<li class="chip mood ${sentiment}">${trialSentiments[sentiment]}</li>${chips.join('')}`;
+function httpsUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.href : '';
+  } catch {
+    return '';
+  }
 }
 
-function renderReview(review) {
-  const { id, author, date, excerpts } = review;
-  const { topics, sentiment, status } = currentLabels(review);
-  return `<article class="review-record" id="review-${id}" tabindex="-1" aria-labelledby="author-${id}">
-    <p class="evidence-return" hidden></p>
-    <div class="record-header">
-      <h3 id="author-${id}">${escapeHtml(author)}</h3>
-      <time datetime="${date}">${dateFormat.format(new Date(date))}</time>
-    </div>
-    <div class="excerpts">${excerpts.map(({ subject, text }) => `
-      <figure>
-        <figcaption>${escapeHtml(subject)}</figcaption>
-        <blockquote>${escapeHtml(text)}</blockquote>
-      </figure>`).join('')}
-    </div>
-    <p class="attribution">
-      <a href="${reviewBase + id}" target="_blank" rel="noopener">Original review<span class="sr-only"> by ${escapeHtml(author)} (opens in a new tab)</span></a>
-      <span>${trialSource.name} · 1989 album review</span>
-      <a href="${licenseUrl}">CC BY-SA 3.0</a>
-      <span>Excerpted</span>
-    </p>
-    <ul class="labels" aria-label="Current labels">${labelsHtml(review)}</ul>
-    <details class="editor">
-      <summary>Edit labels</summary>
-      <form data-review="${id}">
-        <fieldset>
-          <legend>Topics</legend>
-          <div class="topic-options">${topicEntries.map(([topic, label]) => `
-            <label><input type="checkbox" name="topic" value="${topic}" ${topics.includes(topic) ? 'checked' : ''}>
-              ${escapeHtml(label)}</label>`).join('')}</div>
-        </fieldset>
-        <div class="editor-fields">
-          <label>Sentiment
-            <select name="sentiment">${sentimentEntries.map(([key, label]) => `
-              <option value="${key}" ${key === sentiment ? 'selected' : ''}>${label}</option>`).join('')}</select>
-          </label>
-          <label>Feedback status
-            <select name="status">
-              <option value="included" ${status === 'included' ? 'selected' : ''}>Included</option>
-              <option value="excluded" ${status === 'excluded' ? 'selected' : ''}>Excluded from analysis</option>
-            </select>
-          </label>
-        </div>
-        <div class="editor-actions">
-          <button class="action" type="submit">Save labels</button>
-          <p class="save-status" role="status"></p>
-        </div>
-      </form>
-    </details>
-    <p class="record-state" ${edits.has(id) ? '' : 'hidden'}>Browser edits saved</p>
+function storedLabels(key, baseline) {
+  try {
+    const edit = JSON.parse(localStorage.getItem(key));
+    if (Array.isArray(edit?.tags) && edit.tags.every(tag => Object.hasOwn(topics, tag))
+      && Object.hasOwn(sentiments, edit.sentiment) && typeof edit.included === 'boolean') {
+      return { ...edit, tags: [...new Set(edit.tags)] };
+    }
+  } catch {
+    // A browser without storage can still open the archived labels.
+  }
+  return baseline;
+}
+
+function parseSnapshot(text, item) {
+  const wrapped = /^window\.[A-Za-z][A-Za-z0-9_]*\s*=\s*/.test(text.trim());
+  const json = wrapped ? text.trim().replace(/^window\.[A-Za-z][A-Za-z0-9_]*\s*=\s*/, '').replace(/;$/, '') : text;
+  const payload = JSON.parse(json);
+  if (!Array.isArray(payload?.samples)) throw new Error('Choose a Krescendo review snapshot.');
+  if ((payload.release && payload.release !== item.id) || (!payload.release && (!wrapped || item.id !== 'housewife'))) {
+    throw new Error('This snapshot belongs to a different release.');
+  }
+  const nativeId = row => row.platform + ':' + row.sourceCommentId;
+  const parentById = new Map(payload.samples.filter(row => typeof row?.text === 'string' && row.sourceCommentId).map(row => [nativeId(row), row]));
+  const rows = [];
+  const seen = new Set();
+  for (const row of payload.samples) {
+    const original = httpsUrl(row?.commentUrl);
+    if (!original || !row.topicReview || row.contextOnly || ['excluded', 'pending'].includes(row.topicReview.status)
+      || !Object.hasOwn(platformNames, row.platform) || typeof row.text !== 'string'
+      || !row.sourceCommentId || !row.postId || (row.expiresAt && Date.parse(row.expiresAt) <= Date.now())) continue;
+    const id = nativeId(row);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const key = `krescendo.portfolio.v1.${item.id}.${id}`;
+    const tags = [...new Set((Array.isArray(row.topicReview.tags) ? row.topicReview.tags : []).filter(tag => Object.hasOwn(topics, tag)))];
+    const sentiment = Object.hasOwn(sentiments, row.sentiment) ? row.sentiment : 'uncertain';
+    rows.push({ id, key, postId: row.postId, platform: row.platform, text: row.text, original,
+      parent: row.parentCommentId ? parentById.get(row.platform + ':' + row.parentCommentId) : null,
+      ...storedLabels(key, { tags, sentiment, included: true }) });
+  }
+  if (!rows.length) throw new Error('This file has no verified records with a current original link.');
+  return { rows };
+}
+
+function updateLiveCounts(records) {
+  const included = records.rows.filter(row => row.included);
+  document.getElementById('live-counts').innerHTML = `<h3>Current local labels</h3>${listStats([
+    ['Included', format.format(included.length)],
+    ...Object.entries(sentiments).map(([key, name]) => [name, format.format(included.filter(row => row.sentiment === key).length)]),
+    ...Object.entries(topics).map(([key, name]) => [name, format.format(included.filter(row => row.tags.includes(key)).length)]),
+  ])}`;
+}
+
+function renderRecord(row, position) {
+  return `<article class="review-record">
+    <div class="record-header"><h3>${platformNames[row.platform]} feedback</h3>${openLink(row.original, 'Original comment')}</div>
+    <p class="review-text">${escapeHtml(row.text)}</p>
+    ${row.parent ? `<details><summary>Read parent context</summary><p>${escapeHtml(row.parent.text)}</p></details>` : ''}
+    <ul class="labels" aria-label="Current labels">
+      ${row.included ? '' : '<li class="chip">Excluded</li>'}<li class="chip mood ${row.sentiment}">${sentiments[row.sentiment]}</li>
+      ${row.tags.map(topic => `<li class="chip">${escapeHtml(topics[topic])}</li>`).join('')}
+    </ul>
+    <details class="editor"><summary>Edit labels</summary><form data-row="${position}">
+      <fieldset><legend>Topics</legend><div class="topic-options">${Object.entries(topics).map(([key, name]) =>
+        `<label><input type="checkbox" name="topic" value="${key}" ${row.tags.includes(key) ? 'checked' : ''}>${escapeHtml(name)}</label>`).join('')}</div></fieldset>
+      <div class="editor-fields"><label>Sentiment <select name="sentiment">${Object.entries(sentiments).map(([key, name]) =>
+        `<option value="${key}" ${row.sentiment === key ? 'selected' : ''}>${name}</option>`).join('')}</select></label>
+      <label><input type="checkbox" name="included" ${row.included ? 'checked' : ''}> Include in analysis</label></div>
+      <button class="action" type="submit">Save labels</button>
+      <p class="save-status" role="status"></p>
+    </form></details>
   </article>`;
 }
 
-function filterReviews({ params, record }, keepVisible = '') {
-  const query = params.get('q') ?? '';
-  const requestedTopic = params.get('topic');
-  const requestedStatus = params.get('status');
-  const topic = Object.hasOwn(trialTopics, requestedTopic) ? requestedTopic : '';
-  const status = ['included', 'excluded'].includes(requestedStatus) ? requestedStatus : '';
-  const source = params.get('source') === trialSource.id;
-  const filterActive = Boolean(query || topic || status || source);
-  reviewSearch.value = query;
-  reviewTopic.value = topic;
-  reviewStatus.value = status;
-  document.querySelector('#review-filters').hidden = Boolean(record);
-  document.querySelector('#filter-summary').hidden = Boolean(record);
-  document.querySelector('#clear-filters').hidden = !filterActive;
-
-  const needle = query.trim().toLowerCase();
-  let count = 0;
-  let retained = false;
-  for (const review of trialReviews) {
-    const labels = currentLabels(review);
-    const searchable = [review.author, ...review.excerpts.map(({ subject, text }) => subject + ' ' + text)].join(' ').toLowerCase();
-    const match = record ? review.id === record.id
-      : (!topic || labels.topics.includes(topic)) && (!status || labels.status === status) && searchable.includes(needle);
-    const keep = !match && review.id === keepVisible;
-    retained ||= keep;
-    document.getElementById('review-' + review.id).hidden = !match && !keep;
-    if (match) count += 1;
+function bindArchive(records) {
+  const reviewResults = document.getElementById('record-results');
+  const search = document.getElementById('record-search');
+  const topic = document.getElementById('record-topic');
+  const platform = document.getElementById('record-platform');
+  let page = 1;
+  function updateResults() {
+    const query = search.value.trim().toLowerCase();
+    const matches = records.rows.filter(row => row.text.toLowerCase().includes(query)
+      && (!topic.value || row.tags.includes(topic.value)) && (!platform.value || row.platform === platform.value));
+    const pages = Math.max(1, Math.ceil(matches.length / pageSize));
+    page = Math.min(page, pages);
+    const visible = matches.slice((page - 1) * pageSize, page * pageSize);
+    reviewResults.innerHTML = `<p class="fine" aria-live="polite">${format.format(matches.length)} matching records · Page ${page} of ${pages}</p>
+      ${visible.length ? visible.map(row => renderRecord(row, records.rows.indexOf(row))).join('') : '<p>No matching records.</p>'}
+      <div class="archive-pagination">
+        <button type="button" class="action" data-page="previous" ${page === 1 ? 'disabled' : ''}>Previous</button>
+        <button type="button" class="action" data-page="next" ${page === pages ? 'disabled' : ''}>Next</button>
+      </div>`;
   }
-  document.querySelector('#review-results').textContent = `${reviewCount(count)}${source ? ' from ' + trialSource.name : ''}`;
-  document.querySelector('#no-reviews').hidden = count > 0 || retained;
-  return retained;
+  function resetPage() { page = 1; updateResults(); }
+  search.addEventListener('input', resetPage);
+  topic.addEventListener('change', resetPage);
+  platform.addEventListener('change', resetPage);
+  reviewResults.addEventListener('click', event => {
+    const direction = event.target.closest('[data-page]')?.dataset.page;
+    if (!direction) return;
+    page += direction === 'next' ? 1 : -1;
+    updateResults();
+    search.focus();
+  });
+  reviewResults.addEventListener('submit', event => {
+    const form = event.target;
+    if (!form.matches('form[data-row]')) return;
+    event.preventDefault();
+    const row = records.rows[Number(form.dataset.row)];
+    const fields = new FormData(form);
+    const edit = { tags: fields.getAll('topic'), sentiment: fields.get('sentiment'), included: fields.has('included') };
+    let saved = true;
+    try { localStorage.setItem(row.key, JSON.stringify(edit)); } catch { saved = false; }
+    Object.assign(row, edit);
+    updateLiveCounts(records);
+    const article = form.closest('article');
+    article.outerHTML = renderRecord(row, Number(form.dataset.row));
+    const savedForm = reviewResults.querySelector(`form[data-row="${form.dataset.row}"]`);
+    savedForm.closest('details').open = true;
+    savedForm.querySelector('button').focus({ preventScroll: true });
+    savedForm.querySelector('.save-status').textContent = saved
+      ? 'Labels saved in this browser.' : 'Labels updated for this session. Browser storage is unavailable.';
+  });
+  updateResults();
 }
 
-function updateFilters() {
-  const { params } = readRoute();
-  const values = { q: reviewSearch.value, topic: reviewTopic.value, status: reviewStatus.value };
-  if (params.get('source') === trialSource.id) values.source = trialSource.id;
-  const applied = Object.fromEntries(Object.entries(values).filter(([, value]) => value));
-  history.replaceState(null, '', pageUrl('reviews', applied));
-  filterReviews(readRoute());
-}
-
-function showLocation({ initial = false } = {}) {
-  const route = readRoute();
-  const { page, record, params } = route;
-  for (const [id, { link }] of pages) {
-    if (id === page) link.setAttribute('aria-current', 'page');
-    else link.removeAttribute('aria-current');
-    document.getElementById(id).hidden = id !== page;
+stage.addEventListener('change', async event => {
+  if (!event.target.matches('#review-file') || !event.target.files[0]) return;
+  const { item } = route();
+  const message = document.getElementById('load-message');
+  try {
+    const records = parseSnapshot(await event.target.files[0].text(), item);
+    localCases.set(item.id, records);
+    if (route().item === item && route().view === 'reviews') render();
+  } catch (error) {
+    message.textContent = error instanceof SyntaxError ? 'Choose a valid Krescendo JSON or archived snapshot file.' : error.message;
   }
-  showTopicEvidence();
-  if (page === 'reviews') filterReviews(route);
-
-  const requestedAnchor = params.get('at');
-  const anchor = requestedAnchor && document.getElementById(requestedAnchor);
-  const section = document.getElementById(page);
-  if (record) {
-    const card = document.getElementById('review-' + record.id);
-    const back = params.get('back');
-    const backRoute = back?.startsWith('#') ? readRoute(back) : null;
-    const targetPage = backRoute && ['overview', 'feedback', 'next', 'brief'].includes(backRoute.page) ? backRoute.page : '';
-    const backLink = card.querySelector('.evidence-return');
-    const href = targetPage ? pageUrl(targetPage, backRoute.params) : '#reviews';
-    const label = targetPage ? pages.get(targetPage).label : 'Review Text';
-    backLink.innerHTML = `<a href="${escapeHtml(href)}">Back to ${label}</a>`;
-    backLink.hidden = false;
-    card.focus({ preventScroll: true });
-    card.scrollIntoView({ block: 'start' });
-  } else {
-    section.querySelectorAll('.evidence-return').forEach(link => { link.hidden = true; });
-    const fallback = requestedAnchor && page === 'feedback'
-      ? document.getElementById('topic-' + params.get('topic'))
-      : null;
-    const destination = anchor && section.contains(anchor) && !anchor.closest('[hidden]') ? anchor : fallback;
-    if (destination) {
-      destination.focus({ preventScroll: true });
-      destination.scrollIntoView({ block: 'nearest' });
-    } else if (!initial) {
-      document.getElementById(page + '-heading').focus({ preventScroll: true });
-      window.scrollTo(0, 0);
-    }
-  }
-}
+});
 
 document.querySelector('.skip-link').addEventListener('click', event => {
   event.preventDefault();
   document.querySelector('#workspace').focus();
 });
-
-feedbackTopics.innerHTML = topicEntries.map(([topic, label]) => `
-  <button id="topic-${topic}" type="button" data-topic="${topic}" aria-pressed="false" aria-controls="topic-results">
-    <span>${escapeHtml(label)}</span><strong></strong>
-  </button>`).join('');
-feedbackTopics.addEventListener('click', event => {
-  const button = event.target.closest('button[data-topic]');
-  if (!button) return;
-  const topic = button.dataset.topic;
-  const selected = readRoute().params.get('topic') === topic;
-  location.hash = pageUrl('feedback', selected ? { at: button.id } : { topic, at: button.id });
-});
-
-reviewTopic.insertAdjacentHTML('beforeend', topicEntries.map(([key, label]) => `
-  <option value="${key}">${escapeHtml(label)}</option>`).join(''));
-reviewSearch.addEventListener('input', updateFilters);
-reviewTopic.addEventListener('change', updateFilters);
-reviewStatus.addEventListener('change', updateFilters);
-reviewList.innerHTML = trialReviews.map(renderReview).join('');
-
-reviewList.addEventListener('submit', event => {
-  const form = event.target;
-  if (!form.matches('form[data-review]')) return;
-  event.preventDefault();
-
-  const review = reviewsById.get(form.dataset.review);
-  const before = currentLabels(review);
-  const fields = new FormData(form);
-  const edit = { topics: fields.getAll('topic'), sentiment: fields.get('sentiment'), status: fields.get('status') };
-  const status = form.querySelector('.save-status');
-  const card = form.closest('article');
-
-  try {
-    localStorage.setItem(storagePrefix + review.id, JSON.stringify(edit));
-  } catch {
-    status.textContent = 'This browser could not save the edit. Enable local storage and try again.';
-    status.classList.add('needs-review');
-    return;
-  }
-
-  edits.set(review.id, edit);
-  card.querySelector('.labels').innerHTML = labelsHtml(review);
-  card.querySelector('.record-state').hidden = false;
-  const { topicCounts, sentimentCounts } = updateSummaries();
-  const differences = topicEntries.filter(([key]) =>
-    (before.status === 'included' && before.topics.includes(key)) !== (edit.status === 'included' && edit.topics.includes(key)))
-    .map(([key, label]) => `${label} now has ${reviewCount(topicCounts[key])}.`);
-  if (before.sentiment !== edit.sentiment && edit.status === 'included') {
-    differences.push(`${trialSentiments[edit.sentiment]} now has ${reviewCount(sentimentCounts[edit.sentiment])}.`);
-  }
-  status.classList.remove('needs-review');
-  if (filterReviews(readRoute(), review.id)) {
-    differences.push('This review no longer matches the current filters.');
-  }
-  status.textContent = ['Saved in this browser.', ...differences].join(' ');
-});
-
-window.addEventListener('hashchange', () => showLocation());
-updateSummaries();
-showLocation({ initial: true });
+window.addEventListener('hashchange', () => render({ moveFocus: true }));
+render();

@@ -1,116 +1,87 @@
-const trialSource = {
-  id: 'critiquebrainz',
-  name: 'CritiqueBrainz',
-  screened: 6,
+const portfolioCases = [
+  {
+    id: 'housewife',
+    title: 'Housewife',
+    artist: 'Tate McRae',
+    year: '2026',
+    reviewed: 1074,
+    archived: 1346,
+    posts: 192,
+    platforms: ['YouTube', 'Instagram', 'TikTok', 'Reddit', 'X'],
+    question: 'Which choreography feedback gives the release team something concrete to follow up on?',
+    findings: [
+      { topic: 'dance', title: 'Choreography and learning', text: 'The case separates praise, requests for instruction, plans to try a dance and first-hand reports of practicing. Each is tied to a specific version of the choreography.' },
+      { topic: 'music', title: 'Bridge and chorus', text: 'The analysis keeps the song’s bridge and chorus separate and distinguishes the official video from live and cover versions.' },
+      { topic: 'video', title: 'Visual and performance feedback', text: 'Comments about the music video and its performance are separated from reactions to fan edits and other creators.' },
+    ],
+    primary: { title: 'Check which choreography people are trying to learn', text: 'Keep the creator and routine attached to each request. Where a slow tutorial already exists, point people to it and look for a specific step they still struggle with.', check: 'A follow-up needs evidence of an unresolved step in the same routine.', topic: 'dance' },
+    secondary: { title: 'Keep the bridge and chorus as separate clip candidates', text: 'Compare the two only after setting a goal and finding comparable source footage.', topic: 'music' },
+    links: [
+      { title: 'Official music video', url: 'https://www.youtube.com/watch?v=DPEodkHzH-s' },
+      { title: 'Official release notes', url: 'https://www.sonymusic.ca/press_release/tate-mcrae-releases-housewife' },
+    ],
+  },
+  {
+    id: 'hate-that-i-made-you-love-me',
+    title: 'hate that i made you love me',
+    artist: 'Ariana Grande',
+    year: '2026',
+    reviewed: 977,
+    archived: 1070,
+    posts: 7,
+    platforms: ['YouTube', 'Reddit'],
+    question: 'What should the team check about the video and the recording after seeing how people respond?',
+    findings: [
+      { topic: 'video', title: 'Visual storytelling and accessibility', text: 'The case separates interpretation of the restaurant scene and props from the practical question of how to find a description of the visuals.' },
+      { topic: 'music', title: 'Vocal details', text: 'The review records reactions to particular changes in register and layers of vocals alongside reservations about the mix and chorus.' },
+      { topic: 'theme', title: 'Lyrics and personal experiences', text: 'Personal interpretations are attributed to the listener and kept separate from claims about the story or the artist’s intent.' },
+    ],
+    primary: { title: 'Check how easily someone can find a description of the music video', text: 'Review the official assets and see whether a viewer can locate a clear account of the key scenes.', check: 'Confirm what description already exists and where it can be found before suggesting a new one.', topic: 'video' },
+    secondary: { title: 'Keep a vocal passage as an alternative material test', text: 'If the team pursues an audio clip, compare how clearly the vocal layers come through on a phone.', topic: 'music' },
+    links: [
+      { title: 'Official music video', url: 'https://www.youtube.com/watch?v=82-jTNka3uc' },
+      { title: 'Official lyric video', url: 'https://www.youtube.com/watch?v=v1t4MTqdfyI' },
+    ],
+  },
+  {
+    id: 'keyring',
+    title: 'Keyring',
+    artist: 'Cody Jon',
+    year: '2025',
+    reviewed: 275,
+    archived: 734,
+    posts: 29,
+    platforms: ['Instagram', 'TikTok', 'YouTube'],
+    question: 'Which listener questions can the team answer, and which musical observations are worth keeping for later?',
+    findings: [
+      { topic: 'request', title: 'Merchandise availability', text: 'Requests about the heart keyring are kept separate from general praise. The review distinguishes finding a seller from purchase intent.' },
+      { topic: 'music', title: 'Key change and chorus piano', text: 'The review distinguishes remarks that arise without prompting from remarks on posts where the caption already points to the musical moment.' },
+      { topic: 'theme', title: 'Personal use of the song', text: 'Comments about relationships, singing along or returning to the recording are recorded as individual reports.' },
+    ],
+    primary: { title: 'Verify current keyring purchase and shipping options', text: 'Check inventory, the point of sale and delivery coverage. If the question is still open, a short, current answer is an actionable follow-up.', check: 'Check the current merch offer. The feedback does not measure sales or demand.', topic: 'request' },
+    secondary: { title: 'Keep the key change as a clip candidate', text: 'If the team sets a goal for a music-led asset, compare the key change and chorus piano under that goal.', topic: 'music' },
+    links: [
+      { title: 'Original recording on Apple Music', url: 'https://music.apple.com/us/song/1851752560' },
+      { title: 'Official audio', url: 'https://www.youtube.com/watch?v=Aa_6GJstPe4' },
+    ],
+  },
+];
+
+const topics = {
+  music: 'Music & production',
+  video: 'Visual storytelling',
+  dance: 'Dance & choreography',
+  theme: 'Lyrics & themes',
+  request: 'Requests & access',
+  engagement: 'Listener behavior',
+  styling: 'Styling & performance',
+  reservations: 'Reservations',
 };
 
-const trialTopics = {
-  melody: 'Melody & rhythm',
-  story: 'Lyrics & story',
-  connection: 'Personal connection',
-  video: 'Music video',
-};
-
-const trialSentiments = {
+const sentiments = {
   positive: 'Positive',
-  mixed: 'Mixed',
   neutral: 'Neutral',
+  mixed: 'Mixed',
   negative: 'Negative',
+  uncertain: 'Uncertain',
 };
-
-const trialReviews = [
-  {
-    id: '0f5d4bf4-5c2d-4621-8af3-1d08788ed915',
-    author: 'gawwee',
-    date: '2016-01-20',
-    excerpts: [
-      { subject: 'Personal connection to the song', text: '"Wildest Dreams" is a song that personally relates to me quite well too.' },
-    ],
-    topics: ['connection'],
-    sentiment: 'positive',
-  },
-  {
-    id: '81f0aa06-8b9c-4490-b090-7e54614fe59e',
-    author: 'ana14',
-    date: '2016-01-07',
-    excerpts: [
-      { subject: 'Musical feel', text: 'an incredible song and original with a peaceful rhythm.' },
-      { subject: 'Writing', text: 'The lines are so good written and so well done' },
-    ],
-    topics: ['melody', 'story'],
-    sentiment: 'positive',
-  },
-  {
-    id: '5449549a-3845-4169-a1a1-0c00a876be7d',
-    author: 'Samarpita Gulati',
-    date: '2015-12-20',
-    excerpts: [
-      { subject: 'Lyrics and story', text: 'the story and lyrics were fabulous.' },
-      { subject: 'Music video', text: 'The guest appearance of wild animals too was fascinating.' },
-    ],
-    topics: ['story', 'video'],
-    sentiment: 'positive',
-  },
-  {
-    id: 'a64e7c44-00fb-47d8-bb75-f57da58d6bf7',
-    author: 'Daksh',
-    date: '2015-12-03',
-    excerpts: [
-      { subject: 'Melody, in a comment about two tracks', text: '"I Know Places", and "Wildest Dreams" are just mesmerizing and their tunes so addicting' },
-    ],
-    topics: ['melody'],
-    sentiment: 'positive',
-  },
-];
-
-const trialFindings = [
-  {
-    id: 'musical-feel',
-    title: 'The track’s musical feel stood out in two reviews',
-    text: 'One reviewer noticed the peaceful rhythm. Another found the tune memorable in a passage about two songs.',
-    evidence: [
-      { id: '81f0aa06-8b9c-4490-b090-7e54614fe59e', topic: 'melody' },
-      { id: 'a64e7c44-00fb-47d8-bb75-f57da58d6bf7', topic: 'melody' },
-    ],
-  },
-  {
-    id: 'writing',
-    title: 'Two reviewers singled out the writing',
-    text: 'One praised the way the lines were written. Another praised the lyrics and story.',
-    evidence: [
-      { id: '81f0aa06-8b9c-4490-b090-7e54614fe59e', topic: 'story' },
-      { id: '5449549a-3845-4169-a1a1-0c00a876be7d', topic: 'story' },
-    ],
-  },
-  {
-    id: 'resonance',
-    title: 'The song felt personally relatable',
-    text: 'One reviewer described a personal connection. Their review leaves the reason open.',
-    evidence: [{ id: '0f5d4bf4-5c2d-4621-8af3-1d08788ed915', topic: 'connection' }],
-  },
-  {
-    id: 'wildlife',
-    title: 'The wildlife in the video caught one reviewer’s attention',
-    text: 'The reviewer specifically mentioned the animals. This is a lead for further review of visual reactions.',
-    evidence: [{ id: '5449549a-3845-4169-a1a1-0c00a876be7d', topic: 'video' }],
-  },
-];
-
-const trialOptions = [
-  {
-    id: 'intro-framing',
-    title: 'Compare a music-first and a story-first introduction',
-    findings: ['musical-feel', 'writing'],
-    rationale: 'Reviewers pointed to both the track’s sound and its writing. Each gives a different way to introduce the song.',
-    test: 'If the team is introducing the track to new listeners, use short intros of equal length that lead with the music or the story. Ask what listeners remember unaided and whether they would keep listening.',
-    gap: 'This sample does not identify a winning angle or a specific timestamp. Recheck the evidence if one of the two themes loses support, and use listener results before choosing an introduction.',
-  },
-  {
-    id: 'video-lead',
-    title: 'Check if the wildlife detail comes up elsewhere',
-    findings: ['wildlife'],
-    rationale: 'One reviewer called the animals’ appearance in the video fascinating.',
-    test: 'If the team is revisiting the video, look for the same detail in other eligible MV feedback or ask viewers what visual they recall.',
-    gap: 'One review gives this lead. Look for the detail across independent sources before considering a visual-only edit.',
-  },
-];
