@@ -40,11 +40,25 @@ function listStats(entries) {
   return `<dl>${entries.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>`;
 }
 
+function caseTotals(item) {
+  const totals = { reviewed: 0, direct: 0, archived: 0, posts: 0, platforms: 0 };
+  for (const { direct, postOnly = 0, saved, posts } of Object.values(item.coverage)) {
+    totals.reviewed += direct + postOnly;
+    totals.direct += direct;
+    totals.archived += saved;
+    totals.posts += posts;
+    if (direct || postOnly) totals.platforms++;
+  }
+  return totals;
+}
+
 function scope(item) {
+  const totals = caseTotals(item);
   return listStats([
-    ['Verified feedback records', format.format(item.reviewed)],
-    ['Saved records', format.format(item.archived)],
-    ['Source posts in archive', format.format(item.posts)],
+    ['Reviewed feedback', format.format(totals.reviewed)],
+    ['With a direct link', format.format(totals.direct)],
+    ['Saved records', format.format(totals.archived)],
+    ['Source posts in archive', format.format(totals.posts)],
   ]);
 }
 
@@ -53,15 +67,18 @@ function renderLibrary() {
     <header class="release"><h1>Release feedback</h1><p>Three cases from source collection to a reviewable next step.</p></header>
     <section class="panel library">
       <div class="library-title"><h2>Case library</h2><p class="lede">Sample sizes are from the reviewed local archives.</p></div>
-      <ul class="case-list">${portfolioCases.map(item => `<li><div>
+      <ul class="case-list">${portfolioCases.map(item => {
+        const totals = caseTotals(item);
+        return `<li><div>
           <h3><a href="${href(item)}">${escapeHtml(item.title)}</a></h3>
           <p>${escapeHtml(item.artist)} · ${item.year} single</p>
           <p class="case-question">${escapeHtml(item.question)}</p>
         </div><div class="case-size">
-          <strong>${format.format(item.reviewed)}</strong>
-          <span>verified feedback records</span>
-          <span>${item.platforms.length} platforms in archive</span>
-        </div></li>`).join('')}</ul>
+          <strong>${format.format(totals.reviewed)}</strong>
+          <span>reviewed feedback records</span>
+          <span>${totals.platforms} of 5 platforms with reviewed feedback</span>
+        </div></li>`;
+      }).join('')}</ul>
     </section>`;
 }
 
@@ -70,8 +87,9 @@ function renderProgress() {
     <header class="release"><h1>Project progress</h1><p>Case review, the public site and data permissions.</p></header>
     <section class="panel library">
       <a href="#library">Back to case library</a>
-      <section class="finding"><h2>Completed locally</h2>
-        <p>Three release cases have been collected, deduplicated and reviewed. Housewife has 1,074 verified feedback records. The full workspace supports review, source context and corrected label counts.</p></section>
+      <section class="finding"><h2>Platform coverage</h2>
+        <p>Housewife and Ariana Grande’s single have reviewed feedback from all five platforms. Keyring has feedback from YouTube, Instagram and TikTok. The Reddit and X searches yielded no eligible listener feedback in this pass.</p>
+        <p>Each case’s Sources page lists the saved and reviewed counts, including records that link to a video only.</p></section>
       <section class="finding"><h2>Available on GitHub</h2>
         <p>Case summaries, links to official release material and the review interface. You can open a Krescendo review snapshot from your device to work with its contents in your browser.</p></section>
       <section class="finding"><h2>Public data permissions</h2>
@@ -112,22 +130,32 @@ function localTopicSummary(item, records) {
     </li>`).join('')}</ul></section>`;
 }
 
+function coverageHtml(item, records) {
+  return `<ul class="case-topics coverage-list">${Object.entries(platformNames).map(([key, platform]) => {
+    const { saved, posts, direct, postOnly = 0, note } = item.coverage[key];
+    const localRows = records?.rows.filter(row => row.platform === key) ?? [];
+    const platformLabel = localRows.length
+      ? `<a href="${escapeHtml(href(item, 'reviews', { platform: key, from: 'sources' }))}">${platform}</a>`
+      : `<strong>${platform}</strong>`;
+    return `<li data-platform="${key}"><div>${platformLabel}${note ? `<p class="fine">${escapeHtml(note)}</p>` : ''}</div>
+      <div><span>${format.format(direct + postOnly)} reviewed · ${format.format(saved)} saved · ${posts} ${posts === 1 ? 'post' : 'posts'}</span>
+        ${postOnly ? `<span class="fine">${postOnly} with video links only</span>` : ''}
+        ${localRows.length ? `<span class="fine">${format.format(localRows.filter(row => row.included).length)} included in the loaded snapshot</span>` : ''}</div>
+    </li>`;
+  }).join('')}</ul>`;
+}
+
 function renderPanel(item, view, params, records) {
   if (view === 'overview') return `<p class="lede">${escapeHtml(item.question)}</p>
     ${findingsHtml(item)}
     <a class="action section-action" href="${href(item, 'feedback')}">Explore audience feedback</a>`;
-  if (view === 'sources') return `<p class="lede">The local archive includes ${escapeHtml(item.platforms.join(', '))}.</p>
-    <section class="finding"><h3>Official release material</h3>
-      <ul class="evidence-links">${item.links.map(link => `<li>${openLink(link.url, link.title)}</li>`).join('')}</ul></section>
+  if (view === 'sources') return `<p class="lede">${caseTotals(item).platforms} of 5 platforms contributed reviewed feedback.</p>
     <section class="finding"><h3>Feedback archive</h3>
-      <p>The public case shows archival coverage. Open the local snapshot to filter the individual records and return to their original sources.</p>
-      ${records ? `<ul class="case-topics">${item.platforms.map(platform => {
-        const key = Object.keys(platformNames).find(id => platformNames[id] === platform);
-        const count = records.rows.filter(row => row.platform === key && row.included).length;
-        return `<li><a href="${escapeHtml(href(item, 'reviews', { platform: key, from: 'sources' }))}">${platform}</a><span>${format.format(count)} included</span></li>`;
-      }).join('')}</ul>` : ''}
+      ${coverageHtml(item, records)}
       <a class="section-link" href="${href(item, 'reviews')}">Open Review Text</a>
-    </section>`;
+    </section>
+    <section class="finding"><h3>Official release material</h3>
+      <ul class="evidence-links">${item.links.map(link => `<li>${openLink(link.url, link.title)}</li>`).join('')}</ul></section>`;
   if (view === 'feedback') return `<p class="lede">The case groups feedback by what it refers to and what the reviewer expresses.</p>
     ${findingsHtml(item)}${localTopicSummary(item, records)}
     <a class="action section-action" href="${href(item, 'next')}">Explore possible next steps</a>`;
@@ -176,7 +204,7 @@ function render({ moveFocus = false } = {}) {
       <section class="view layout">
         <div class="panel"><h2 tabindex="-1">${views[view]}</h2>${renderPanel(item, view, params, records)}</div>
         <aside class="panel sidebar live"><h3>Reviewed local case</h3>
-          <p class="lede">Snapshot audited November 17, 2026.</p>
+          <p class="lede">Snapshot audited ${escapeHtml(item.audited)}.</p>
           <div class="count-list">${scope(item)}</div>
           ${records ? '<div id="live-counts" class="count-list"></div>' : '<p class="fine">Original comment archives are kept outside the public site.</p>'}
           <a class="section-link" href="#progress">View data usage status</a>
@@ -229,9 +257,10 @@ function parseSnapshot(text, item) {
   const rows = [];
   const seen = new Set();
   for (const row of payload.samples) {
-    const original = httpsUrl(row?.commentUrl);
+    const direct = httpsUrl(row?.commentUrl);
+    const original = direct || httpsUrl(row?.postUrl);
     if (!original || !row.topicReview || row.contextOnly || ['excluded', 'pending'].includes(row.topicReview.status)
-      || !Object.hasOwn(platformNames, row.platform) || typeof row.text !== 'string'
+      || !Object.hasOwn(platformNames, row.platform) || typeof row.text !== 'string' || !row.text.trim()
       || !row.sourceCommentId || !row.postId || (row.expiresAt && Date.parse(row.expiresAt) <= Date.now())) continue;
     const id = nativeId(row);
     if (seen.has(id)) continue;
@@ -239,11 +268,11 @@ function parseSnapshot(text, item) {
     const key = `krescendo.portfolio.v1.${item.id}.${id}`;
     const tags = [...new Set((Array.isArray(row.topicReview.tags) ? row.topicReview.tags : []).filter(tag => Object.hasOwn(topics, tag)))];
     const sentiment = Object.hasOwn(sentiments, row.sentiment) ? row.sentiment : 'uncertain';
-    rows.push({ id, key, postId: row.postId, platform: row.platform, text: row.text, original,
+    rows.push({ id, key, postId: row.postId, platform: row.platform, text: row.text, original, direct: Boolean(direct),
       parent: row.parentCommentId ? parentById.get(row.platform + ':' + row.parentCommentId) : null,
       ...storedLabels(key, { tags, sentiment, included: true }) });
   }
-  if (!rows.length) throw new Error('This file has no verified records with a current original link.');
+  if (!rows.length) throw new Error('This file has no reviewed records with a current source link.');
   return { rows };
 }
 
@@ -251,16 +280,19 @@ function updateLiveCounts(records) {
   const included = records.rows.filter(row => row.included);
   document.getElementById('live-counts').innerHTML = `<h3>Current local labels</h3>${listStats([
     ['Included', format.format(included.length)],
+    ['Included with a direct link', format.format(included.filter(row => row.direct).length)],
     ...Object.entries(sentiments).map(([key, name]) => [name, format.format(included.filter(row => row.sentiment === key).length)]),
     ...Object.entries(topics).map(([key, name]) => [name, format.format(included.filter(row => row.tags.includes(key)).length)]),
   ])}`;
 }
 
 function renderRecord(row, position) {
+  const originalLabel = row.direct ? 'Original comment' : row.platform === 'tiktok' ? 'Original video' : 'Original post';
   return `<article class="review-record">
-    <div class="record-header"><h3>${platformNames[row.platform]} feedback</h3>${openLink(row.original, 'Original comment')}</div>
+    <div class="record-header"><h3>${platformNames[row.platform]} feedback</h3>${openLink(row.original, originalLabel)}</div>
     <p class="review-text">${escapeHtml(row.text)}</p>
-    ${row.parent ? `<details><summary>Read parent context</summary><p>${escapeHtml(row.parent.text)}</p></details>` : ''}
+    ${row.parent ? `<details><summary>Read parent context</summary><p>${escapeHtml(row.parent.text)}</p>
+      ${httpsUrl(row.parent.commentUrl) ? openLink(httpsUrl(row.parent.commentUrl), 'Original parent') : ''}</details>` : ''}
     <ul class="labels" aria-label="Current labels">
       ${row.included ? '' : '<li class="chip">Excluded</li>'}<li class="chip mood ${row.sentiment}">${sentiments[row.sentiment]}</li>
       ${row.tags.map(topic => `<li class="chip">${escapeHtml(topics[topic])}</li>`).join('')}
