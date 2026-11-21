@@ -340,6 +340,7 @@ blockquote { margin-top: .14rem; }
 .evidence-sources > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding-block: .55rem; gap: .35rem .8rem; }
 .evidence-sources a { overflow-wrap: anywhere; }
 .evidence-sources .fine { display: block; margin: 0; }
+.evidence-source-note { grid-column: 1 / -1; color: var(--muted); }
 .evidence-sources label { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; }
 .evidence-sources input { accent-color: var(--accent); }
 .finding > .evidence-preview { margin: .6rem 0 .2rem; }

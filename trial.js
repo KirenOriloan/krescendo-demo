@@ -9,7 +9,7 @@ const views = {
   brief: 'Feedback Brief',
 };
 const platformNames = { youtube: 'YouTube', instagram: 'Instagram', tiktok: 'TikTok', reddit: 'Reddit', x: 'X' };
-const evidenceOrigins = ['overview', 'feedback', 'next', 'brief'];
+const evidenceOrigins = ['overview', 'feedback', 'next', 'brief', 'reviews'];
 const stage = document.getElementById('workspace-content');
 const caseById = new Map(portfolioCases.map(item => [item.id, item]));
 const localCases = new Map();
@@ -94,9 +94,9 @@ function renderProgress() {
         <p>Housewife and Ariana Grande’s single have reviewed feedback from all five platforms. Keyring has feedback from YouTube, Instagram and TikTok. The Reddit and X searches yielded no eligible listener feedback in this pass.</p>
         <p>Each case’s Sources page lists the saved and reviewed counts, including records that link to a video only.</p></section>
       <section class="finding"><h2>Available on GitHub</h2>
-        <p>Case summaries, evidence counts and links to the source posts. You can try including or excluding source posts in an evidence preview.</p></section>
+        <p>Case summaries, evidence counts, source summaries and links to the original posts. You can try including or excluding posts in an evidence preview.</p></section>
       <section class="finding"><h2>Public data permissions</h2>
-        <p>Permission to redistribute the original comment archives is still under review. Published evidence uses counts and source-post links. Load a snapshot from your device to work with individual comments.</p></section>
+        <p>Permission to redistribute the original comment archives is still under review. Published evidence uses counts, summaries and source-post links. Load a snapshot from your device to work with individual comments.</p></section>
     </section>`;
 }
 
@@ -168,6 +168,7 @@ function evidenceGroup(item, key) {
         <span class="fine">${post.comments} ${post.comments === 1 ? 'matching comment' : 'matching comments'}</span></div>
       <label><input type="checkbox" data-source-include="${index}" ${excluded.has(index) ? '' : 'checked'}
         aria-label="Include ${escapeHtml(post.title)} in preview"> Include in preview</label>
+      <p class="evidence-source-note">${escapeHtml(post.note)}</p>
     </li>`).join('')}</ul>
   </section>`;
 }
@@ -182,9 +183,9 @@ function renderEvidence(item, params) {
     from: 'evidence', entry: entryId, origin: from });
   return `<a class="section-link evidence-back" href="${escapeHtml(back)}">Back to ${views[from]}</a>
     <h3 class="evidence-title">${escapeHtml(entry.title)}</h3>
-    <p class="lede">Source links open on their original platforms. Uncheck a source to see how removing it changes the preview.</p>
+    <p class="lede">Read the source summaries here or open the original posts on their platforms. Uncheck a source to see how it changes the preview.</p>
     ${entry.evidence.map(key => evidenceGroup(item, key)).join('')}
-    <a class="section-link" href="${escapeHtml(reviews)}">Review individual comments from a local snapshot</a>`;
+    ${from === 'reviews' ? '' : `<a class="section-link" href="${escapeHtml(reviews)}">Review individual comments from a local snapshot</a>`}`;
 }
 
 function bindEvidence(item) {
@@ -275,10 +276,11 @@ function renderPanel(item, view, params, records) {
   const from = params.get('from');
   const back = from === 'evidence'
     ? `<a class="section-link" href="${escapeHtml(href(item, 'evidence', { entry: params.get('entry'), from: params.get('origin') }))}">Back to evidence</a>`
-    : [...evidenceOrigins, 'sources'].includes(from)
+    : from === 'sources' || (from !== 'reviews' && evidenceOrigins.includes(from))
     ? `<a class="section-link" href="${href(item, from)}">Back to ${views[from]}</a>` : '';
   return `${back}<p class="lede">Open a reviewed Krescendo snapshot from your device to inspect evidence, edit labels and see counts update.</p>
-    ${records || from === 'evidence' ? '' : `<a class="section-link" href="${href(item, 'evidence', { entry: 'primary', from: 'next' })}">Try the public evidence preview</a>`}
+    ${records || from === 'evidence' ? '' : `<a class="section-link" id="evidence-primary" data-evidence-return
+      href="${href(item, 'evidence', { entry: 'primary', from: 'reviews' })}">Try the public evidence preview</a>`}
     <label class="file-input">
       <input class="sr-only" id="review-file" type="file" accept=".json,.js,application/json">
       <span>Open local review snapshot</span>
@@ -329,7 +331,8 @@ function render({ moveFocus = false } = {}) {
   if (moveFocus) {
     const returnTo = document.getElementById(`evidence-${params.get('focus')}`);
     if (returnTo?.hasAttribute('data-evidence-return')) {
-      returnTo.focus();
+      returnTo.focus({ preventScroll: true });
+      returnTo.scrollIntoView({ block: 'center' });
       return;
     }
     stage.querySelector('h1')?.setAttribute('tabindex', '-1');

@@ -17,8 +17,16 @@ Open a track and follow **Overview**, **Sources**, **Audience Feedback**, **What
 ## Try it without signing in
 
 1. Open [Housewife’s recommendations](https://kirenoriloan.github.io/krescendo-demo/#housewife/next) and select **View supporting evidence**.
-2. See how many comments and source posts support each observation. Open a post or filter the list by platform.
+2. Read what the reviewed feedback contributed at each source. Filter by platform or open the original post.
 3. Uncheck the largest source and see the count and share change in the preview. Use **Back to What to Try Next** to return to the same recommendation.
+
+## How the analysis works
+
+1. **Collect and deduplicate.** Save a dated snapshot of related release posts, fan videos and discussions. Track each comment or reply by platform and native ID. Keep the original post and enough reply context to review what the person meant.
+2. **Label and review.** Use rule-based suggestions for an initial pass where available. Review the original wording and post context before using a record as evidence. Separate a request, a reported action, a specific opinion and general praise. Set aside spam, off-topic entries, unresolved cases and text kept only for context when counting support.
+3. **Turn a finding into a follow-up.** Count the reviewed comments behind a specific finding, then count the distinct posts and calculate the largest post’s share. For Housewife, 10 tutorial requests across 7 posts support checking which routines people want to learn. A separate report of trying one routine leaves the actual sticking point open.
+
+The public site uses reviewed snapshots of this analysis. Its preview recalculates support when you exclude a source. The published counts describe the collected sample, and the follow-ups are questions or tests for a release team.
 
 ## Case findings
 
@@ -30,7 +38,7 @@ Open a track and follow **Overview**, **Sources**, **Audience Feedback**, **What
 
 In **Review Text**, open a reviewed Krescendo snapshot from your device. The browser reads the file locally. You can filter by platform or topic, open the original comment or video, view available parent context and edit topic labels or sentiment. Reopen the snapshot after refreshing to see your saved labels. The page retains only label edits in browser storage.
 
-The public evidence pages show counts and source-post links. The individual comments are stored separately from this repository and can be opened in Review Text from an authorized local snapshot. The [project progress page](https://kirenoriloan.github.io/krescendo-demo/#progress) documents what is public and which data permissions are still being reviewed.
+The public evidence pages show counts, summaries of the reviewed feedback and source-post links. The summaries remain readable if an external site asks you to sign in or verify access. The individual comments are stored separately from this repository and can be opened in Review Text from an authorized local snapshot. The [project progress page](https://kirenoriloan.github.io/krescendo-demo/#progress) documents what is public and which data permissions are still being reviewed.
 
 ## Run locally
 
