@@ -171,8 +171,9 @@ function renderPanel(item, view, params, records) {
   const back = ['overview', 'sources', 'feedback', 'next', 'brief'].includes(from)
     ? `<a class="section-link" href="${href(item, from)}">Back to ${views[from]}</a>` : '';
   return `${back}<p class="lede">Open a reviewed Krescendo snapshot from your device to inspect evidence, edit labels and see counts update.</p>
-    <label class="file-input">Open local review snapshot
-      <input id="review-file" type="file" accept=".json,.js,application/json">
+    <label class="file-input">
+      <input class="sr-only" id="review-file" type="file" accept=".json,.js,application/json">
+      <span>Open local review snapshot</span>
     </label>
     <p class="fine">The file is read in your browser. Only label edits are retained in browser storage. Reopen the file after refreshing.</p>
     <p id="load-message" class="fine" role="status">${records ? 'Snapshot loaded.' : ''}</p>
