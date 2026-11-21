@@ -14,6 +14,12 @@ The Keyring searches yielded no eligible listener feedback on Reddit or X in thi
 
 Open a track and follow **Overview**, **Sources**, **Audience Feedback**, **What to Try Next**, and **Feedback Brief**. These pages describe the analysis and the follow-up questions it produced.
 
+## Try it without signing in
+
+1. Open [Housewife’s recommendations](https://kirenoriloan.github.io/krescendo-demo/#housewife/next) and select **View supporting evidence**.
+2. See how many comments and source posts support each observation. Open a post or filter the list by platform.
+3. Uncheck the largest source and see the count and share change in the preview. Use **Back to What to Try Next** to return to the same recommendation.
+
 ## Case findings
 
 - **Housewife.** Check which version of the choreography people are trying to learn and which steps still give them trouble. The slow tutorial is already available. [Feedback brief](https://kirenoriloan.github.io/krescendo-demo/#housewife/brief)
@@ -24,7 +30,7 @@ Open a track and follow **Overview**, **Sources**, **Audience Feedback**, **What
 
 In **Review Text**, open a reviewed Krescendo snapshot from your device. The browser reads the file locally. You can filter by platform or topic, open the original comment or video, view available parent context and edit topic labels or sentiment. Reopen the snapshot after refreshing to see your saved labels. The page retains only label edits in browser storage.
 
-The counts above describe the audited local snapshots. The case library and briefs are available without a snapshot. Original comment archives are stored separately from this repository. The [project progress page](https://kirenoriloan.github.io/krescendo-demo/#progress) documents what is public and which data permissions are still being reviewed.
+The public evidence pages show counts and source-post links. The individual comments are stored separately from this repository and can be opened in Review Text from an authorized local snapshot. The [project progress page](https://kirenoriloan.github.io/krescendo-demo/#progress) documents what is public and which data permissions are still being reviewed.
 
 ## Run locally
 

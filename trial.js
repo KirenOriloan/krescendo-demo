@@ -9,10 +9,13 @@ const views = {
   brief: 'Feedback Brief',
 };
 const platformNames = { youtube: 'YouTube', instagram: 'Instagram', tiktok: 'TikTok', reddit: 'Reddit', x: 'X' };
+const evidenceOrigins = ['overview', 'feedback', 'next', 'brief'];
 const stage = document.getElementById('workspace-content');
 const caseById = new Map(portfolioCases.map(item => [item.id, item]));
 const localCases = new Map();
+const evidencePreviews = new Map();
 const format = new Intl.NumberFormat('en-US');
+const percent = new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 });
 const pageSize = 15;
 
 function escapeHtml(value) {
@@ -28,7 +31,7 @@ function href(item, view = 'overview', params = {}) {
 function route() {
   const [path, query] = location.hash.slice(1).split('?');
   const [id, destination] = path.split('/');
-  return { item: caseById.get(id), view: Object.hasOwn(views, destination) ? destination : 'overview',
+  return { item: caseById.get(id), view: destination === 'evidence' || Object.hasOwn(views, destination) ? destination : 'overview',
     params: new URLSearchParams(query), progress: id === 'progress' };
 }
 
@@ -91,26 +94,126 @@ function renderProgress() {
         <p>Housewife and Ariana Grande’s single have reviewed feedback from all five platforms. Keyring has feedback from YouTube, Instagram and TikTok. The Reddit and X searches yielded no eligible listener feedback in this pass.</p>
         <p>Each case’s Sources page lists the saved and reviewed counts, including records that link to a video only.</p></section>
       <section class="finding"><h2>Available on GitHub</h2>
-        <p>Case summaries, links to official release material and the review interface. You can open a Krescendo review snapshot from your device to work with its contents in your browser.</p></section>
+        <p>Case summaries, evidence counts and links to the source posts. You can try including or excluding source posts in an evidence preview.</p></section>
       <section class="finding"><h2>Public data permissions</h2>
-        <p>Permission to redistribute the original comment archives is still under review. The public site shows the size of each local case and the questions it explored. Records and original comment links load from the snapshot you select.</p></section>
+        <p>Permission to redistribute the original comment archives is still under review. Published evidence uses counts and source-post links. Load a snapshot from your device to work with individual comments.</p></section>
     </section>`;
 }
 
-function findingsHtml(item) {
-  return item.findings.map(finding => `<section class="finding">
+function summarizeEvidence(posts) {
+  const counts = posts.map(post => post.comments);
+  const comments = counts.reduce((sum, count) => sum + count, 0);
+  const largest = comments ? ` · largest post ${percent.format(Math.max(...counts) / comments)}` : '';
+  const scope = posts.length === 1 ? '1 post' : `${posts.length} posts`;
+  return `${format.format(comments)} ${comments === 1 ? 'comment' : 'comments'} · ${scope}${largest}`;
+}
+
+function evidenceEntry(item, id) {
+  if (id === 'primary' || id === 'secondary') return item[id];
+  return /^finding-\d+$/.test(id ?? '') ? item.findings[Number(id.slice(8))] : undefined;
+}
+
+function evidenceOrigin(params) {
+  const from = params.get('from');
+  return evidenceOrigins.includes(from) ? from : 'next';
+}
+
+function evidenceLink(item, entry, id, from, label = 'View evidence') {
+  return `<ul class="evidence-counts">${entry.evidence.map(key => {
+    const group = item.evidence[key];
+    return `<li><strong>${escapeHtml(group.title)}</strong> · ${summarizeEvidence(group.posts)}</li>`;
+  }).join('')}</ul>
+  <a class="section-link" id="evidence-${id}" data-evidence-return
+    href="${escapeHtml(href(item, 'evidence', { entry: id, from }))}">${label}</a>`;
+}
+
+function findingsHtml(item, from) {
+  return item.findings.map((finding, index) => `<section class="finding">
     <h3>${escapeHtml(finding.title)}</h3><p>${escapeHtml(finding.text)}</p>
-    <a class="section-link" href="${escapeHtml(href(item, 'reviews', { topic: finding.topic, from: 'feedback' }))}">Review this topic</a>
+    ${evidenceLink(item, finding, `finding-${index}`, from)}
   </section>`).join('');
 }
 
-function optionHtml(item, option, primary) {
+function optionHtml(item, id) {
+  const option = item[id];
   return `<section class="finding">
     <h3>${escapeHtml(option.title)}</h3>
     <p>${escapeHtml(option.text)}</p>
-    ${primary ? `<p class="fine"><strong>What to check</strong> ${escapeHtml(option.check)}</p>` : ''}
-    <a class="section-link" href="${escapeHtml(href(item, 'reviews', { topic: option.topic, from: 'next' }))}">Review supporting feedback</a>
+    ${option.check ? `<p class="fine"><strong>What to check</strong> ${escapeHtml(option.check)}</p>` : ''}
+    ${evidenceLink(item, option, id, 'next', 'View supporting evidence')}
   </section>`;
+}
+
+function evidenceGroup(item, key) {
+  const group = item.evidence[key];
+  const sourcePlatforms = [...new Set(group.posts.map(post => post.platform))];
+  const previewKey = `${item.id}:${key}`;
+  const excluded = evidencePreviews.get(previewKey) ?? new Set();
+  return `<section class="finding evidence-group" data-evidence-group="${previewKey}" aria-labelledby="group-${key}">
+    <h4 id="group-${key}">${escapeHtml(group.title)}</h4>
+    <p class="evidence-scope">${summarizeEvidence(group.posts)}</p>
+    <p>${escapeHtml(group.note)}</p>
+    ${group.followUp ? `<p class="evidence-follow-up"><strong>Already published</strong> ${openLink(group.followUp.url, group.followUp.title)}</p>` : ''}
+    <div class="evidence-controls">
+      ${sourcePlatforms.length > 1 ? `<label>Show sources from
+        <select data-evidence-platform><option value="">All platforms</option>
+          ${sourcePlatforms.map(platform => `<option value="${platform}">${platformNames[platform]}</option>`).join('')}
+        </select>
+      </label>` : ''}
+      <button class="text-button" type="button" data-reset-evidence ${excluded.size ? '' : 'disabled'}>Reset preview</button>
+    </div>
+    <p class="evidence-preview" role="status">Preview includes ${summarizeEvidence(group.posts.filter((_, index) => !excluded.has(index)))}</p>
+    <ul class="case-topics evidence-sources">${group.posts.map((post, index) => `<li data-evidence-source="${post.platform}">
+      <div><span class="fine">${platformNames[post.platform]}</span>${openLink(post.url, post.title)}
+        <span class="fine">${post.comments} ${post.comments === 1 ? 'matching comment' : 'matching comments'}</span></div>
+      <label><input type="checkbox" data-source-include="${index}" ${excluded.has(index) ? '' : 'checked'}
+        aria-label="Include ${escapeHtml(post.title)} in preview"> Include in preview</label>
+    </li>`).join('')}</ul>
+  </section>`;
+}
+
+function renderEvidence(item, params) {
+  const requested = params.get('entry');
+  const entryId = evidenceEntry(item, requested) ? requested : 'primary';
+  const entry = evidenceEntry(item, entryId);
+  const from = evidenceOrigin(params);
+  const back = href(item, from, { focus: entryId });
+  const reviews = href(item, 'reviews', { topic: item.evidence[entry.evidence[0]].topic,
+    from: 'evidence', entry: entryId, origin: from });
+  return `<a class="section-link evidence-back" href="${escapeHtml(back)}">Back to ${views[from]}</a>
+    <h3 class="evidence-title">${escapeHtml(entry.title)}</h3>
+    <p class="lede">Source links open on their original platforms. Uncheck a source to see how removing it changes the preview.</p>
+    ${entry.evidence.map(key => evidenceGroup(item, key)).join('')}
+    <a class="section-link" href="${escapeHtml(reviews)}">Review individual comments from a local snapshot</a>`;
+}
+
+function bindEvidence(item) {
+  for (const section of stage.querySelectorAll('[data-evidence-group]')) {
+    const previewKey = section.dataset.evidenceGroup;
+    const group = item.evidence[previewKey.slice(item.id.length + 1)];
+    const choices = [...section.querySelectorAll('[data-source-include]')];
+    const reset = section.querySelector('[data-reset-evidence]');
+    const refresh = () => {
+      const excluded = new Set(choices.filter(choice => !choice.checked).map(choice => Number(choice.dataset.sourceInclude)));
+      evidencePreviews.set(previewKey, excluded);
+      const included = group.posts.filter((_, index) => !excluded.has(index));
+      section.querySelector('[role="status"]').textContent = `Preview includes ${summarizeEvidence(included)}`;
+      reset.disabled = !excluded.size;
+    };
+    section.addEventListener('change', event => {
+      if (event.target.matches('[data-evidence-platform]')) {
+        for (const row of section.querySelectorAll('[data-evidence-source]')) {
+          row.hidden = Boolean(event.target.value && event.target.value !== row.dataset.evidenceSource);
+        }
+      } else if (event.target.matches('[data-source-include]')) refresh();
+    });
+    reset.addEventListener('click', () => {
+      choices.forEach(choice => { choice.checked = true; });
+      const firstVisible = choices.find(choice => !choice.closest('li').hidden);
+      firstVisible?.focus();
+      refresh();
+    });
+  }
 }
 
 function localTopicSummary(item, records) {
@@ -147,30 +250,35 @@ function coverageHtml(item, records) {
 
 function renderPanel(item, view, params, records) {
   if (view === 'overview') return `<p class="lede">${escapeHtml(item.question)}</p>
-    ${findingsHtml(item)}
+    ${findingsHtml(item, view)}
     <a class="action section-action" href="${href(item, 'feedback')}">Explore audience feedback</a>`;
   if (view === 'sources') return `<p class="lede">${caseTotals(item).platforms} of 5 platforms contributed reviewed feedback.</p>
     <section class="finding"><h3>Feedback archive</h3>
       ${coverageHtml(item, records)}
-      <a class="section-link" href="${href(item, 'reviews')}">Open Review Text</a>
+      <a class="section-link" href="${href(item, 'reviews')}">Open a local snapshot</a>
     </section>
     <section class="finding"><h3>Official release material</h3>
       <ul class="evidence-links">${item.links.map(link => `<li>${openLink(link.url, link.title)}</li>`).join('')}</ul></section>`;
   if (view === 'feedback') return `<p class="lede">The case groups feedback by what it refers to and what the reviewer expresses.</p>
-    ${findingsHtml(item)}${localTopicSummary(item, records)}
+    ${findingsHtml(item, view)}${localTopicSummary(item, records)}
     <a class="action section-action" href="${href(item, 'next')}">Explore possible next steps</a>`;
   if (view === 'next') return `<p class="lede">Possible follow-ups for the team to check.</p>
-    ${optionHtml(item, item.primary, true)}${optionHtml(item, item.secondary, false)}
+    ${optionHtml(item, 'primary')}${optionHtml(item, 'secondary')}
     <a class="action section-action" href="${href(item, 'brief')}">Open the feedback brief</a>`;
   if (view === 'brief') return `<p class="lede">${escapeHtml(item.question)}</p>
-    ${findingsHtml(item)}
+    ${findingsHtml(item, view)}
     <div class="brief-action"><h3>${escapeHtml(item.primary.title)}</h3>
       <p>${escapeHtml(item.primary.check)}</p>
+      ${evidenceLink(item, item.primary, 'primary', view, 'View supporting evidence')}
       <a class="section-link" href="${href(item, 'next')}">See the follow-up and alternatives</a></div>`;
+  if (view === 'evidence') return renderEvidence(item, params);
   const from = params.get('from');
-  const back = ['overview', 'sources', 'feedback', 'next', 'brief'].includes(from)
+  const back = from === 'evidence'
+    ? `<a class="section-link" href="${escapeHtml(href(item, 'evidence', { entry: params.get('entry'), from: params.get('origin') }))}">Back to evidence</a>`
+    : [...evidenceOrigins, 'sources'].includes(from)
     ? `<a class="section-link" href="${href(item, from)}">Back to ${views[from]}</a>` : '';
   return `${back}<p class="lede">Open a reviewed Krescendo snapshot from your device to inspect evidence, edit labels and see counts update.</p>
+    ${records || from === 'evidence' ? '' : `<a class="section-link" href="${href(item, 'evidence', { entry: 'primary', from: 'next' })}">Try the public evidence preview</a>`}
     <label class="file-input">
       <input class="sr-only" id="review-file" type="file" accept=".json,.js,application/json">
       <span>Open local review snapshot</span>
@@ -197,14 +305,15 @@ function render({ moveFocus = false } = {}) {
     else renderLibrary();
   } else {
     const records = localCases.get(item.id);
+    const activeView = view === 'evidence' ? evidenceOrigin(params) : view;
     stage.innerHTML = `
       <div class="case-breadcrumb"><a href="#library">Case library</a></div>
       <header class="release"><h1>${escapeHtml(item.title)}</h1><p>${escapeHtml(item.artist)} · ${item.year} single</p></header>
       <nav class="nav" aria-label="Release workspace">${Object.entries(views).map(([key, title]) =>
-        `<a href="${href(item, key)}"${view === key ? ' aria-current="page"' : ''}>${title}</a>`).join('')}</nav>
+        `<a href="${href(item, key)}"${activeView === key ? ' aria-current="page"' : ''}>${title}</a>`).join('')}</nav>
       <section class="view layout">
-        <div class="panel"><h2 tabindex="-1">${views[view]}</h2>${renderPanel(item, view, params, records)}</div>
-        <aside class="panel sidebar live"><h3>Reviewed local case</h3>
+        <div class="panel"><h2 tabindex="-1">${view === 'evidence' ? 'Evidence' : views[view]}</h2>${renderPanel(item, view, params, records)}</div>
+        <aside class="panel sidebar live"><h3>Full case archive</h3>
           <p class="lede">Snapshot audited ${escapeHtml(item.audited)}.</p>
           <div class="count-list">${scope(item)}</div>
           ${records ? '<div id="live-counts" class="count-list"></div>' : '<p class="fine">Original comment archives are kept outside the public site.</p>'}
@@ -215,8 +324,14 @@ function render({ moveFocus = false } = {}) {
       updateLiveCounts(records);
       if (view === 'reviews') bindArchive(records);
     }
+    if (view === 'evidence') bindEvidence(item);
   }
   if (moveFocus) {
+    const returnTo = document.getElementById(`evidence-${params.get('focus')}`);
+    if (returnTo?.hasAttribute('data-evidence-return')) {
+      returnTo.focus();
+      return;
+    }
     stage.querySelector('h1')?.setAttribute('tabindex', '-1');
     (stage.querySelector('.view h2') ?? stage.querySelector('h1'))?.focus({ preventScroll: true });
     window.scrollTo(0, 0);

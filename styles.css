@@ -325,7 +325,27 @@ blockquote { margin-top: .14rem; }
 }
 .coverage-list li { align-items: baseline; }
 .coverage-list .fine { display: block; margin: .15rem 0 0; }
+.evidence-counts { list-style: none; padding: 0; margin-top: .65rem; color: var(--muted); font-size: .88rem; }
+.evidence-counts li + li { margin-top: .18rem; }
+.evidence-back { margin: .3rem 0 .85rem; }
+.evidence-title { margin-bottom: .3rem; }
+.evidence-group h4 { font-size: 1rem; margin: 0; }
+.evidence-scope, .evidence-preview { font-size: .9rem; font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 650; }
+.evidence-group .evidence-follow-up { margin-top: .65rem; }
+.evidence-controls { display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: end; margin-top: .8rem; }
+.evidence-controls label { display: grid; gap: .2rem; font-size: .88rem; }
+.evidence-controls select { padding: .3rem .45rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.evidence-controls .text-button { border: 0; background: transparent; padding: .32rem 0; color: var(--accent); text-decoration: underline; text-underline-offset: .2em; font-size: .88rem; }
+.evidence-controls .text-button:disabled { color: var(--muted); cursor: default; text-decoration: none; }
+.evidence-sources > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding-block: .55rem; gap: .35rem .8rem; }
+.evidence-sources a { overflow-wrap: anywhere; }
+.evidence-sources .fine { display: block; margin: 0; }
+.evidence-sources label { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; }
+.evidence-sources input { accent-color: var(--accent); }
+.finding > .evidence-preview { margin: .6rem 0 .2rem; }
+.brief-action .section-link + .section-link { display: block; }
 .file-input { display: inline-flex; margin-top: .9rem; font-size: .88rem; font-weight: 700; cursor: pointer; }
+.lede + .section-link + .file-input { display: flex; width: fit-content; }
 .file-input span { padding: .4rem .65rem; border: 1px solid var(--accent); border-radius: 6px; background: var(--paper); }
 .file-input:hover span { background: var(--sky); }
 .file-input input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 4px; }
